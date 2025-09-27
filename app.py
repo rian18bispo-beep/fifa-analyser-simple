@@ -1,31 +1,3 @@
-# Analisador FIFA Old Trafford — Arquivos para GitHub
-
-Este documento contém dois blocos prontos para copiar/colar no seu repositório:
-
-1. `requirements.txt` (conteúdo exato)
-2. `app.py` (arquivo Streamlit pronto)
-
----
-
-## requirements.txt
-
-```
-streamlit==1.26.0
-requests==2.31.0
-beautifulsoup4==4.12.2
-lxml==4.9.3
-pandas==2.2.2
-numpy==1.26.4
-selenium==4.12.0
-webdriver-manager==4.2.2
-python-dateutil==2.8.2
-cachetools==5.3.1
-tqdm==4.66.1
-``` 
-
----
-
-## app.py
 
 ```python
 # Analisador FIFA Old Trafford - Streamlit App (single-file)
