@@ -1,12 +1,14 @@
-app.py
-
 import streamlit as st, requests, pandas as pd, datetime as dt, math
 from bs4 import BeautifulSoup
-from elo import rate_1vs1
 
-# --------------------------------------------------
-# CONFIG
-# --------------------------------------------------
+# ---------- ELO INLINE ----------
+K = 32
+def rate_1vs1(rA, rB):
+    EA = 1/(1+10**((rB-rA)/400))
+    EB = 1 - EA
+    return rA + K*(1 - EA), rB + K*(0 - EB)
+# --------------------------------
+
 st.set_page_config(page_title="Old Trafford Analyzer", layout="wide")
 st.markdown("""
 <style>
@@ -16,12 +18,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 API_BASE = "https://football.esportsbattle.com/en/tournament"
-TOUR_IDS = [224741,224735,224737,224739,224742,224743,224744]  # 26/09/2025
+TOUR_IDS = [224741,224735,224737,224739,224742,224743,224744]
 SUPERBET = "https://superbet.bet.br/apostas/e-sport-futebol/ao-vivo"
 
-# --------------------------------------------------
-# CACHE
-# --------------------------------------------------
 @st.cache_data(ttl=60)
 def fetch_page(tour_id):
     url = f"{API_BASE}/{tour_id}"
@@ -35,17 +34,14 @@ def get_matches():
         soup = fetch_page(tid)
         tor = soup.select_one("h1.tournament-title").text.strip()
         for card in soup.select("div.match-card"):
-            status = card.select_one("div.match-status").text.strip().lower()
-            if "scheduled" not in status: continue
+            if "scheduled" not in card.select_one("div.match-status").text.lower(): continue
             t = card.select_one("div.match-time").text.strip()
-            teams = card.select("div.team-name")
-            p1, p2 = [x.text.strip() for x in teams]
+            p1, p2 = [x.text.strip() for x in card.select("div.team-name")]
             rows.append({"tor":tor, "time":t, "p1":p1, "p2":p2})
     return pd.DataFrame(rows)
 
 @st.cache_data(ttl=300)
 def build_elo():
-    # histórico 7 dias (20-25/09)
     hist_ids = [224247,224241,224243,224245,224248,224249,224250,
                 224341,224322,224327,224335,224354,224358,224361,
                 224405,224399,224401,224403,224406,224407,224408,
@@ -57,28 +53,21 @@ def build_elo():
         soup = fetch_page(tid)
         for card in soup.select("div.match-card"):
             try:
-                s = card.select_one("div.match-score").text.strip()
-                if "-" not in s: continue
-                g1, g2 = map(int, s.split("-"))
-                t1 = card.select("div.team-name")[0].text.strip()
-                t2 = card.select("div.team-name")[1].text.strip()
-                r1, r2 = rate_1vs1(elo.get(t1,1500), elo.get(t2,1500))
-                if g1>g2: elo[t1], elo[t2] = r1[0], r2[1]
-                elif g1<g2: elo[t1], elo[t2] = r1[1], r2[0]
-                else: pass  # empate não altera Elo
+                g1, g2 = map(int, card.select_one("div.match-score").text.strip().split("-"))
+                t1, t2 = [x.text.strip() for x in card.select("div.team-name")]
+                rA, rB = rate_1vs1(elo.get(t1,1500), elo.get(t2,1500))
+                if g1>g2:   elo[t1], elo[t2] = rA, rB
+                elif g1<g2: elo[t1], elo[t2] = rB, rA
             except: pass
     return elo
 
 def probs(p1, p2, elo):
     e1, e2 = elo.get(p1,1500), elo.get(p2,1500)
     pwin = 1/(1+10**((e2-e1)/400))
-    pdraw = 1 - abs(pwin - 0.5)*0.5  # ajuste empate
+    pdraw = 0.5 - abs(pwin - 0.5)*0.4
     pwin2 = 1 - pwin - pdraw
     return max(0,round(pwin*100)), max(0,round(pdraw*100)), max(0,round(pwin2*100))
 
-# --------------------------------------------------
-# UI
-# --------------------------------------------------
 st.title("🏟️ Analisador FIFA – Old Trafford")
 st.markdown(f"[🔗 Apostar agora na SuperBet]({SUPERBET})", unsafe_allow_html=True)
 
@@ -93,7 +82,5 @@ if df.empty:
 else:
     for _,r in df.iterrows():
         w,d,l = probs(r.p1, r.p2, elo)
-        st.markdown(f"""
-        **⏰ {r.time} – {r.tor}**  
-        🏴 **{r.p1}**: {w}% ✅ ⚖️ EMPATE: {d}% 🏴 **{r.p2}**: {l}%
-        """)
+        st.markdown(f"**⏰ {r.time} – {r.tor}**  
+🏴 **{r.p1}**: {w}% ✅ ⚖️ EMPATE: {d}% 🏴 **{r.p2}**: {l}%")
