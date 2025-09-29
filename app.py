@@ -82,5 +82,5 @@ if df.empty:
 else:
     for _,r in df.iterrows():
         w,d,l = probs(r.p1, r.p2, elo)
-        st.markdown(f"**⏰ {r.time} – {r.tor}**  
-🏴 **{r.p1}**: {w}% ✅ ⚖️ EMPATE: {d}% 🏴 **{r.p2}**: {l}%")
+        st.markdown(f"**⏰ {r.time} – {r.tor}**<br>🏴 **{r.p1}**: {w}% ✅ ⚖️ EMPATE: {d}% 🏴 **{r.p2}**: {l}%", unsafe_allow_html=True)
+ 
